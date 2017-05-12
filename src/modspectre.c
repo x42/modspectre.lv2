@@ -88,6 +88,7 @@ typedef struct {
 	/* config & state */
 	double rate;
 	float bins[N_BINS];
+	float last[N_BINS];
 	float resp;
 	float tc;
 } ModSpectre;
@@ -336,21 +337,29 @@ run (LV2_Handle instance, uint32_t n_samples)
 	}
 
 #ifdef BACKGROUND_FFT
+	float tbl[N_BINS];
 	feed_fft (self, a_in, n_samples);
 	fft_ran_this_cycle = rb_read_space (self->result) > 0;
 	if (fft_ran_this_cycle) {
 		float ignore = 0;
 		while (0 == rb_read_one (self->result, &ignore)) ;
 	}
+	memcpy (tbl, self->bins, sizeof (float) * N_BINS);
 #else
 	fft_ran_this_cycle = 0 == fftx_run(self->fftx, n_samples, a_in);
 	if (fft_ran_this_cycle) {
 		assign_bins (self);
 	}
+	float *tbl = self->bins;
 #endif
 
 	for (uint32_t b = 0; b < N_BINS; ++b) {
-		*self->ports[P_SPECT + b] = self->bins[b];
+		if (fabsf (self->last[b] - tbl[b]) >= guipx) {
+			*self->ports[P_SPECT + b] = tbl[b];
+			self->last[b] = tbl[b];
+		} else {
+			*self->ports[P_SPECT + b] = self->last[b];
+		}
 	}
 	if (self->ctrl_out) {
 		if (fft_ran_this_cycle) {
