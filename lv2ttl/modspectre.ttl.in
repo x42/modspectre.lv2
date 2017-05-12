@@ -44,3 +44,9 @@
 		lv2:maximum 10.0 ;
 		lv2:portProperty pprop:logarithmic;
 		units:unit units:hz ;
+	] , [
+		a atom:AtomPort, lv2:OutputPort;
+		atom:bufferType atom:Sequence;
+		lv2:index 2;
+		lv2:symbol "notify";
+		lv2:name "Control Output";

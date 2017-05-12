@@ -1,6 +1,6 @@
 #!/bin/bash
 BINS=$1
-IDX=2
+IDX=3
 
 n=0; while ((n++ < $BINS)); do
 	sed "s/@IDX@/$IDX/;s/@BIN@/$n/" << EOF

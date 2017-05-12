@@ -31,6 +31,9 @@
 #include <math.h>
 
 #include <lv2/lv2plug.in/ns/lv2core/lv2.h>
+#include <lv2/lv2plug.in/ns/ext/atom/atom.h>
+#include <lv2/lv2plug.in/ns/ext/atom/forge.h>
+#include <lv2/lv2plug.in/ns/ext/urid/urid.h>
 
 #ifdef BACKGROUND_FFT
 #include <pthread.h>
@@ -42,14 +45,32 @@
 enum {
 	P_AIN = 0,
 	P_RESPONSE,
+	P_NOTIFY,
 	P_SPECT,
 	P_LAST = P_SPECT + N_BINS
 };
 
 typedef struct {
+	LV2_URID atom_Blank;
+	LV2_URID atom_Object;
+	LV2_URID atom_Sequence;
+	LV2_URID atom_Float;
+	LV2_URID atom_Int;
+
+	LV2_URID bin_count;
+	LV2_URID bin_data;
+} MsrURIs;
+
+
+typedef struct {
 	/* ports */
 	float* ports[P_LAST];
-	float bins[N_BINS];
+
+	/* message ports */
+	LV2_Atom_Sequence*       ctrl_out;
+	LV2_Atom_Forge           forge;
+	LV2_Atom_Forge_Frame     frame;
+	MsrURIs                  uris;
 
 	/* FFT */
 	struct FFTAnalysis *fftx;
@@ -64,14 +85,20 @@ typedef struct {
 	ringbuf*        result;
 #endif
 
-	/* config */
+	/* config & state */
 	double rate;
+	float bins[N_BINS];
 	float resp;
 	float tc;
 } ModSpectre;
 
 
+/* *****************************************************************************
+ * FFT
+ */
+
 static const float log1k = 6.907755279f; // logf (1000);
+static const float guipx = 0.0057142857; // 1.f / 175.f; (gui px granularity)
 
 static int x_at_freq (float f)
 {
@@ -84,7 +111,7 @@ assign_bins (ModSpectre* self)
 	const float tc = self->tc;
 	for (uint32_t b = 0; b < N_BINS; ++b) {
 		self->bins[b] *= tc;
-		if (self->bins[b] < 1.f / 180.f) {
+		if (self->bins[b] < guipx) {
 			self->bins[b] = 0;
 		}
 	}
@@ -164,6 +191,51 @@ feed_fft (ModSpectre* self, const float* data, size_t n_samples)
 #endif
 
 /* *****************************************************************************
+ * Atom Port
+ */
+
+#ifdef HAVE_LV2_1_8
+#define x_forge_object lv2_atom_forge_object
+#else
+#define x_forge_object lv2_atom_forge_blank
+#endif
+
+/** map uris */
+static void
+map_uris (LV2_URID_Map* map, MsrURIs* uris)
+{
+	uris->atom_Blank          = map->map (map->handle, LV2_ATOM__Blank);
+	uris->atom_Object         = map->map (map->handle, LV2_ATOM__Object);
+	uris->atom_Sequence       = map->map (map->handle, LV2_ATOM__Sequence);
+	uris->atom_Int            = map->map (map->handle, LV2_ATOM__Int);
+	uris->atom_Float          = map->map (map->handle, LV2_ATOM__Float);
+
+	uris->bin_count           = map->map (map->handle, MODSPECTRE_URI "#bin_count");
+	uris->bin_data            = map->map (map->handle, MODSPECTRE_URI "#bin_data");
+}
+
+static void
+tx_to_gui (ModSpectre* self)
+{
+	float tbl[N_BINS];
+	memcpy (tbl, self->bins, sizeof (float) * N_BINS);
+
+	LV2_Atom_Forge_Frame frame;
+	lv2_atom_forge_frame_time (&self->forge, 0);
+
+	/* add integer attribute 'N_BINS' */
+	lv2_atom_forge_property_head (&self->forge, self->uris.bin_count, 0);
+	lv2_atom_forge_int (&self->forge, N_BINS);
+
+	/* add vector of floats raw 'osc_data' */
+	lv2_atom_forge_property_head (&self->forge, self->uris.bin_data, 0);
+	lv2_atom_forge_vector (&self->forge, sizeof (float), self->uris.atom_Float, N_BINS, tbl);
+
+	/* close off atom-object */
+	lv2_atom_forge_pop (&self->forge, &frame);
+}
+
+/* *****************************************************************************
  * LV2 Plugin
  */
 
@@ -175,6 +247,21 @@ instantiate (const LV2_Descriptor*     descriptor,
 {
 	ModSpectre* self = (ModSpectre*)calloc (1, sizeof (ModSpectre));
 
+	LV2_URID_Map* map = NULL;
+	for (int i = 0; features[i]; ++i) {
+		if (!strcmp (features[i]->URI, LV2_URID__map)) {
+			map = (LV2_URID_Map*)features[i]->data;
+		}
+	}
+
+	if (!map) {
+		free (self);
+		return NULL;
+	}
+
+	lv2_atom_forge_init (&self->forge, map);
+	map_uris (map, &self->uris);
+
 	int fft_size = N_BINS * 16;
 
 	self->rate = rate;
@@ -183,6 +270,10 @@ instantiate (const LV2_Descriptor*     descriptor,
 
 	self->resp = 0.f;
 	self->tc = 1.f;
+
+	for (uint32_t b = 0; b < N_BINS; ++b) {
+		self->last[b] = -1;
+	}
 
 #ifdef BACKGROUND_FFT
 	pthread_mutex_init (&self->lock, NULL);
@@ -210,14 +301,28 @@ connect_port (LV2_Handle instance,
               void*      data)
 {
 	ModSpectre* self = (ModSpectre*)instance;
-	if (port < P_LAST) {
+	if (port == P_NOTIFY) {
+		self->ctrl_out = (LV2_Atom_Sequence*) data;
+	}
+	else if (port < P_LAST) {
 		self->ports[port] = (float*)data;
 	}
 }
+
 static void
 run (LV2_Handle instance, uint32_t n_samples)
 {
 	ModSpectre* self = (ModSpectre*)instance;
+	if (n_samples == 0) {
+		return;
+	}
+	if (self->ctrl_out) {
+		/* prepare forge buffer and initialize atom-sequence */
+		const uint32_t capacity = self->ctrl_out->atom.size;
+		lv2_atom_forge_set_buffer (&self->forge, (uint8_t*)self->ctrl_out, capacity);
+		lv2_atom_forge_sequence_head (&self->forge, &self->frame, 0);
+	}
+
 	float const* const a_in = self->ports[P_AIN];
 	bool fft_ran_this_cycle = false;
 
@@ -246,6 +351,13 @@ run (LV2_Handle instance, uint32_t n_samples)
 
 	for (uint32_t b = 0; b < N_BINS; ++b) {
 		*self->ports[P_SPECT + b] = self->bins[b];
+	}
+	if (self->ctrl_out) {
+		if (fft_ran_this_cycle) {
+			tx_to_gui (self);
+		}
+		/* close off atom-sequence */
+		lv2_atom_forge_pop (&self->forge, &self->frame);
 	}
 }
 
