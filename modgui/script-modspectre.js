@@ -73,6 +73,11 @@ function (event) {
 		tr = svg.group (to, {transform: 'rotate (-90, 3, 0)'});
 		svg.text (tr, 0, 0, "10K");
 
+		yg = 3 + Math.round (y_at_db (-6)); svg.text (tg, width - 5, yg, "-6dBFS");
+		yg = 3 + Math.round (y_at_db (-18)); svg.text (tg, width - 5, yg, "-18dBFS");
+		yg = 3 + Math.round (y_at_db (-48)); svg.text (tg, width - 5, yg, "-48dBFS");
+		yg = 3 + Math.round (y_at_db (-72)); svg.text (tg, width - 5, yg, "-72dBFS");
+
 		/* transfer function */
 		var clp = svg.clipPath (null, 'tfClip');
 		svg.rect (clp, -1, 0, width + 3, height);
