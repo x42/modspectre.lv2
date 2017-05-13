@@ -57,6 +57,7 @@ typedef struct {
 	LV2_URID atom_Float;
 	LV2_URID atom_Int;
 
+	LV2_URID spectrum;
 	LV2_URID bin_count;
 	LV2_URID bin_data;
 } MsrURIs;
@@ -211,6 +212,7 @@ map_uris (LV2_URID_Map* map, MsrURIs* uris)
 	uris->atom_Int            = map->map (map->handle, LV2_ATOM__Int);
 	uris->atom_Float          = map->map (map->handle, LV2_ATOM__Float);
 
+	uris->spectrum            = map->map (map->handle, MODSPECTRE_URI "#spectrum");
 	uris->bin_count           = map->map (map->handle, MODSPECTRE_URI "#bin_count");
 	uris->bin_data            = map->map (map->handle, MODSPECTRE_URI "#bin_data");
 }
@@ -223,6 +225,7 @@ tx_to_gui (ModSpectre* self)
 
 	LV2_Atom_Forge_Frame frame;
 	lv2_atom_forge_frame_time (&self->forge, 0);
+	x_forge_object (&self->forge, &frame, 1, self->uris.spectrum);
 
 	/* add integer attribute 'N_BINS' */
 	lv2_atom_forge_property_head (&self->forge, self->uris.bin_count, 0);

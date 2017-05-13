@@ -67,6 +67,11 @@ ifeq ($(shell pkg-config --exists lv2 || echo no), no)
   $(error "LV2 SDK was not found")
 endif
 
+# check for lv2_atom_forge_object  new in 1.8.1 deprecates lv2_atom_forge_blank
+ifeq ($(shell pkg-config --atleast-version=1.8.1 lv2 && echo yes), yes)
+  override CFLAGS += -DHAVE_LV2_1_8
+endif
+
 ifeq ($(shell pkg-config --exists fftw3f || echo no), no)
   $(error "fftw3f library was not found")
 endif
