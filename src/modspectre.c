@@ -100,7 +100,7 @@ typedef struct {
  */
 
 static const float log1k = 6.907755279f; // logf (1000);
-static const float guipx = 0.0057142857; // 1.f / 175.f; (gui px granularity)
+static const float guipx = 0.0028571427; // 0.5 / 175.f; (gui px granularity)
 
 static int x_at_freq (float f)
 {
@@ -356,16 +356,18 @@ run (LV2_Handle instance, uint32_t n_samples)
 	float *tbl = self->bins;
 #endif
 
+	bool changed = false;
 	for (uint32_t b = 0; b < N_BINS; ++b) {
 		if (fabsf (self->last[b] - tbl[b]) >= guipx) {
 			*self->ports[P_SPECT + b] = tbl[b];
 			self->last[b] = tbl[b];
+			changed = true;
 		} else {
 			*self->ports[P_SPECT + b] = self->last[b];
 		}
 	}
 	if (self->ctrl_out) {
-		if (fft_ran_this_cycle) {
+		if (fft_ran_this_cycle && changed) {
 			tx_to_gui (self);
 		}
 		/* close off atom-sequence */
