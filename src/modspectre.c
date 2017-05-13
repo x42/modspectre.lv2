@@ -225,7 +225,7 @@ tx_to_gui (ModSpectre* self)
 
 	LV2_Atom_Forge_Frame frame;
 	lv2_atom_forge_frame_time (&self->forge, 0);
-	x_forge_object (&self->forge, &frame, 1, self->uris.spectrum);
+	x_forge_object (&self->forge, &frame, 0, self->uris.spectrum);
 
 	/* add integer attribute 'N_BINS' */
 	lv2_atom_forge_property_head (&self->forge, self->uris.bin_count, 0);
