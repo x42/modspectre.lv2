@@ -87,10 +87,16 @@ function (event) {
 			color = '#444444';
 		}
 
+		if (ds.notify === undefined) {
+			return;
+		}
+
+		var bins = ds.notify['notify']['http://gareus.org/oss/lv2/modspectre#spectrum']['http://gareus.org/oss/lv2/modspectre#bin_data'];
+
 		var path = [];
 		g = svg.group ({stroke: color, strokeWidth: 1.0, fill: 'none'});
 		for (var x = 0; x < width; x++) {
-			path.push ([x, y_pos (ds['bin' + (x + 1)])]);
+			path.push ([x, y_pos (bins[x])]);
 		}
 		svg.polyline (g, path, {clipPath: 'url(#tfClip)'});
 		path.push ([width + 1, height]);

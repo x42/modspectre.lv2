@@ -46,8 +46,7 @@ enum {
 	P_AIN = 0,
 	P_RESPONSE,
 	P_NOTIFY,
-	P_SPECT,
-	P_LAST = P_SPECT + N_BINS
+	P_LAST
 };
 
 typedef struct {
@@ -100,7 +99,7 @@ typedef struct {
  */
 
 static const float log1k = 6.907755279f; // logf (1000);
-static const float guipx = 0.0028571427; // 0.5 / 175.f; (gui px granularity)
+static const float guipx = 0.0028571427; // 0.5 / 175.f; (gui 1/2 px granularity)
 
 static int x_at_freq (float f)
 {
@@ -167,10 +166,7 @@ worker (void* arg)
 			if (0 == fftx_run (self->fftx, n_samples, a_in)) {
 				assign_bins (self);
 				float ignore = 1;
-				rb_write (self->result, &ignore, 1);
-#if 0 // defined __GNUC__ || defined __clang___
-				__sync_synchronize ();
-#endif
+				rb_write (self->result, &ignore, 1); // acts as mem-barrier
 			}
 
 			n_samples = rb_read_space (self->to_fft);
@@ -218,22 +214,21 @@ map_uris (LV2_URID_Map* map, MsrURIs* uris)
 }
 
 static void
-tx_to_gui (ModSpectre* self)
+tx_to_gui (ModSpectre* self, const float* bins, int32_t n_bins)
 {
-	float tbl[N_BINS];
-	memcpy (tbl, self->bins, sizeof (float) * N_BINS);
-
 	LV2_Atom_Forge_Frame frame;
 	lv2_atom_forge_frame_time (&self->forge, 0);
 	x_forge_object (&self->forge, &frame, 0, self->uris.spectrum);
 
+#if 0 // not used by UI
 	/* add integer attribute 'N_BINS' */
 	lv2_atom_forge_property_head (&self->forge, self->uris.bin_count, 0);
-	lv2_atom_forge_int (&self->forge, N_BINS);
+	lv2_atom_forge_int (&self->forge, n_bins);
+#endif
 
-	/* add vector of floats raw 'osc_data' */
+	/* add vector of floats raw 'bin_data' */
 	lv2_atom_forge_property_head (&self->forge, self->uris.bin_data, 0);
-	lv2_atom_forge_vector (&self->forge, sizeof (float), self->uris.atom_Float, N_BINS, tbl);
+	lv2_atom_forge_vector (&self->forge, sizeof (float), self->uris.atom_Float, n_bins, bins);
 
 	/* close off atom-object */
 	lv2_atom_forge_pop (&self->forge, &frame);
@@ -336,7 +331,6 @@ run (LV2_Handle instance, uint32_t n_samples)
 		if (v < 0.01) v = 0.01;
 		if (v > 10.0) v = 10.0;
 		self->tc = expf (-2.0 * M_PI * v / 30);
-		//memset (self->bins, 0, sizeof(float) * N_BINS);
 	}
 
 #ifdef BACKGROUND_FFT
@@ -347,7 +341,7 @@ run (LV2_Handle instance, uint32_t n_samples)
 		float ignore = 0;
 		while (0 == rb_read_one (self->result, &ignore)) ;
 	}
-	memcpy (tbl, self->bins, sizeof (float) * N_BINS);
+	memcpy (tbl, self->bins, sizeof (float) * N_BINS); // XXX not atomic
 #else
 	fft_ran_this_cycle = 0 == fftx_run(self->fftx, n_samples, a_in);
 	if (fft_ran_this_cycle) {
@@ -356,19 +350,16 @@ run (LV2_Handle instance, uint32_t n_samples)
 	float *tbl = self->bins;
 #endif
 
-	bool changed = false;
-	for (uint32_t b = 0; b < N_BINS; ++b) {
-		if (fabsf (self->last[b] - tbl[b]) >= guipx) {
-			*self->ports[P_SPECT + b] = tbl[b];
-			self->last[b] = tbl[b];
-			changed = true;
-		} else {
-			*self->ports[P_SPECT + b] = self->last[b];
+	if (self->ctrl_out && fft_ran_this_cycle) {
+		bool changed = false;
+		for (uint32_t b = 0; b < N_BINS; ++b) {
+			if (fabsf (self->last[b] - tbl[b]) >= guipx) {
+				self->last[b] = tbl[b];
+				changed = true;
+			}
 		}
-	}
-	if (self->ctrl_out) {
-		if (fft_ran_this_cycle && changed) {
-			tx_to_gui (self);
+		if (changed) {
+			tx_to_gui (self, self->last, N_BINS);
 		}
 		/* close off atom-sequence */
 		lv2_atom_forge_pop (&self->forge, &self->frame);

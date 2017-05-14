@@ -9,4 +9,5 @@
         modgui:javascript <modgui/script-@LV2NAME@.js> ;
         modgui:brand "x42" ;
         modgui:label "Spectrum Analyzer" ;
-        modgui:monitoredOutputs [ lv2:symbol "bin1" ]
+        modgui:monitoredOutputs [ lv2:symbol "notify" ];
+    ] .

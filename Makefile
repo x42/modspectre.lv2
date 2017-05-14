@@ -100,15 +100,12 @@ $(BUILDDIR)manifest.ttl: lv2ttl/manifest.ttl.in lv2ttl/manifest.modgui.in
 ifneq ($(MOD),)
 	sed "s/@LV2NAME@/$(LV2NAME)/" \
 		lv2ttl/manifest.modgui.in >> $(BUILDDIR)manifest.ttl
-	for b in `seq 2 $(N_BINS)`; do echo ", [ lv2:symbol \"bin$$b\" ]" >> $(BUILDDIR)manifest.ttl ; done
-	echo "; ]." >> $(BUILDDIR)manifest.ttl
 endif
 
 $(BUILDDIR)$(LV2NAME).ttl: lv2ttl/$(LV2NAME).ttl.in
 	@mkdir -p $(BUILDDIR)
 	sed "s/@LV2NAME@/$(LV2NAME)/;s/@SIGNATURE@/$(SIGNATURE)/;s/@VERSION@/lv2:microVersion $(LV2MIC) ;lv2:minorVersion $(LV2MIN) ;/g;s/@MODBRAND@/$(MODBRAND)/;s/@MODLABEL@/$(MODLABEL)/" \
 		lv2ttl/$(LV2NAME).ttl.in > $(BUILDDIR)$(LV2NAME).ttl
-	./genttl.sh $(N_BINS) >> $(BUILDDIR)$(LV2NAME).ttl
 
 $(BUILDDIR)$(LV2NAME)$(LIB_EXT): src/$(LV2NAME).c src/fft.c src/ringbuf.h Makefile
 	@mkdir -p $(BUILDDIR)
