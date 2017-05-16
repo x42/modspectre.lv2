@@ -50,7 +50,7 @@ targets+=$(BUILDDIR)$(LV2NAME)$(LIB_EXT)
 
 ifneq ($(MOD),)
   targets+=$(BUILDDIR)modgui
-  MODLABEL=mod:label \"Spectrum Analyzer\";
+  MODLABEL=mod:label \"SpectrumAnalyzer\";
   MODBRAND=mod:brand \"x42\";
 else
   MODLABEL=
