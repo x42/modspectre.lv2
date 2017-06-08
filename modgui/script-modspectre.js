@@ -36,47 +36,41 @@ function (event) {
 		svg.clear ();
 
 		/* grid */
-		var yg;
 		var g = svg.group ({stroke: 'gray', strokeWidth: 0.25, fill: 'none'});
-		yg = .5 + Math.round (y_at_db (  0)); svg.line (g, 0, yg, width, yg);
-		yg = .5 + Math.round (y_at_db ( -6)); svg.line (g, 0, yg, width, yg);
-		yg = .5 + Math.round (y_at_db (-12)); svg.line (g, 0, yg, width, yg);
-		yg = .5 + Math.round (y_at_db (-18)); svg.line (g, 0, yg, width, yg);
-		yg = .5 + Math.round (y_at_db (-24)); svg.line (g, 0, yg, width, yg);
-		yg = .5 + Math.round (y_at_db (-48)); svg.line (g, 0, yg, width, yg);
-		yg = .5 + Math.round (y_at_db (-72)); svg.line (g, 0, yg, width, yg);
 
-		var xg;
+		var glines = [0, -6, -12, -18, -24, -48, -72];
+		for (var i in glines) {
+			var yg = .5 + Math.round (y_at_db (glines[i])); svg.line (g, 0, yg, width, yg);
+		}
+
 		g = svg.group ({stroke: 'darkgray', strokeWidth: 0.25, strokeDashArray: '1, 3', fill: 'none'});
-		xg = Math.round (x_at_freq (   50, width)); svg.line (g, xg, 0, xg, height);
-		xg = Math.round (x_at_freq (  200, width)); svg.line (g, xg, 0, xg, height);
-		xg = Math.round (x_at_freq (  500, width)); svg.line (g, xg, 0, xg, height);
-		xg = Math.round (x_at_freq ( 2000, width)); svg.line (g, xg, 0, xg, height);
-		xg = Math.round (x_at_freq ( 5000, width)); svg.line (g, xg, 0, xg, height);
-		xg = Math.round (x_at_freq (15000, width)); svg.line (g, xg, 0, xg, height);
+		var flines = [50, 200, 500, 2000, 5000, 15000];
+		for (var i in flines) {
+			var xg = Math.round (x_at_freq (flines[i], width)); svg.line (g, xg, 0, xg, height);
+		}
 
 		var tg = svg.group ({stroke: 'gray', fontSize: '8px', textAnchor: 'end', fontFamily: 'Monospace', strokeWidth: 0.5});
-		var to; var tr;
 		g = svg.group ({stroke: 'gray', strokeWidth: 0.25, strokeDashArray: '3, 2'});
-		xg = Math.round (x_at_freq (  100, width)); svg.line (g, xg, 0, xg, height + 5);
-		to = svg.group (tg, {transform: 'translate ('+xg+', '+(height + 3)+')'});
-		tr = svg.group (to, {transform: 'rotate (-90, 3, 0)'});
-		svg.text (tr, 0, 0, "100");
 
-		xg = Math.round (x_at_freq ( 1000, width)); svg.line (g, xg, 0, xg, height + 5);
-		to = svg.group (tg, {transform: 'translate ('+xg+', '+(height + 3)+')'});
-		tr = svg.group (to, {transform: 'rotate (-90, 3, 0)'});
-		svg.text (tr, 0, 0, "1K");
+		flines = [100, 1000, 10000];
+		for (var i in flines) {
+			var xg = Math.round (x_at_freq (flines[i], width)); svg.line (g, xg, 0, xg, height + 5);
+		}
 
-		xg = Math.round (x_at_freq (10000, width)); svg.line (g, xg, 0, xg, height + 5);
-		to = svg.group (tg, {transform: 'translate ('+xg+', '+(height + 3)+')'});
-		tr = svg.group (to, {transform: 'rotate (-90, 3, 0)'});
-		svg.text (tr, 0, 0, "10K");
+		/* grid labels */
 
-		yg = 3 + Math.round (y_at_db (-6)); svg.text (tg, width - 5, yg, "-6dBFS");
-		yg = 3 + Math.round (y_at_db (-18)); svg.text (tg, width - 5, yg, "-18dBFS");
-		yg = 3 + Math.round (y_at_db (-48)); svg.text (tg, width - 5, yg, "-48dBFS");
-		yg = 3 + Math.round (y_at_db (-72)); svg.text (tg, width - 5, yg, "-72dBFS");
+		var freqlabels = {50: "50", 100: "100", 200: "200", 1000: "1K", 2000: "2K", 5000: "5K", 10000: "10K" };
+		for (var freq in freqlabels) {
+			var xg = Math.round (x_at_freq (freq, width));
+			var to = svg.group (tg, {transform: 'translate ('+xg+', '+(height + 3)+')'});
+			var tr = svg.group (to, {transform: 'rotate (-90, 3, 0)'});
+			svg.text (tr, 0, 0, freqlabels[freq]);
+		}
+
+		var gainlabels = [-6, -18, -48, -72];
+		for (var i in glines) {
+			var yg = 3 + Math.round (y_at_db (gainlabels[i])); svg.text (tg, width - 5, yg, gainlabels[i] + "dBFS");
+		}
 
 		/* transfer function */
 		var clp = svg.clipPath (null, 'tfClip');
