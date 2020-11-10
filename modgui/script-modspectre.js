@@ -81,11 +81,11 @@ function (event) {
 			color = '#444444';
 		}
 
-		if (ds.notify === undefined) {
+		var bins = ds['http://gareus.org/oss/lv2/modspectre#bin_data'];
+
+		if (bins === undefined) {
 			return;
 		}
-
-		var bins = ds.notify['notify']['http://gareus.org/oss/lv2/modspectre#spectrum']['http://gareus.org/oss/lv2/modspectre#bin_data'];
 
 		var path = [];
 		g = svg.group ({stroke: color, strokeWidth: 1.0, fill: 'none'});
@@ -99,8 +99,8 @@ function (event) {
 		svg.polyline (g, path, {clipPath: 'url(#tfClip)'});
 	}
 
-	function handle_event (symbol, value) {
-		;
+	function parse_value (event) {
+		return event.value.split("\n").slice(1, -1).map(function(e) { return parseFloat(e) });
 	}
 
 	if (event.type == 'start') {
@@ -114,13 +114,16 @@ function (event) {
 		var tg = svg.group ({stroke: '#cccccc', fontSize: '11px', textAnchor: 'middle', strokeWidth: 0.5});
 		svg.text (tg, 59, 65, "Spectrum", {dy: '-1.5em'});
 		svg.text (tg, 59, 65, "Display");
-		svg.text (tg, 59, 65, "MOD v0.15.0 or later.", {dy: '1.5em'});
-
+		svg.text (tg, 59, 65, "MOD v1.10 or later.", {dy: '1.5em'});
 
 		var ds = {};
 		var ports = event.ports;
 		for (var p in ports) {
-			ds[ports[p].symbol] = ports[p].value;
+			if (event.uri) {
+				ds[ports[p].uri] = parse_value(ports[p]);
+			} else {
+				ds[ports[p].symbol] = ports[p].value;
+			}
 		}
 
 		sd.data ('xModPorts', ds);
@@ -129,7 +132,11 @@ function (event) {
 	} else if (event.type == 'change') {
 		var sd = event.icon.find ('[mod-role=spectrum-display]');
 		var ds = sd.data ('xModPorts');
-		ds[event.symbol] = event.value;
+		if (event.uri) {
+			ds[event.uri] = parse_value (event);
+		} else {
+			ds[event.symbol] = event.value;
+		}
 		sd.data ('xModPorts', ds);
 		x42_draw_spectrum (sd);
 	}
