@@ -33,6 +33,7 @@
 #include <lv2/lv2plug.in/ns/lv2core/lv2.h>
 #include <lv2/lv2plug.in/ns/ext/atom/atom.h>
 #include <lv2/lv2plug.in/ns/ext/atom/forge.h>
+#include <lv2/lv2plug.in/ns/ext/patch/patch.h>
 #include <lv2/lv2plug.in/ns/ext/urid/urid.h>
 
 #ifdef BACKGROUND_FFT
@@ -55,6 +56,10 @@ typedef struct {
 	LV2_URID atom_Sequence;
 	LV2_URID atom_Float;
 	LV2_URID atom_Int;
+
+	LV2_URID patch_Set;
+	LV2_URID patch_property;
+	LV2_URID patch_value;
 
 	LV2_URID spectrum;
 	LV2_URID bin_count;
@@ -208,7 +213,10 @@ map_uris (LV2_URID_Map* map, MsrURIs* uris)
 	uris->atom_Int            = map->map (map->handle, LV2_ATOM__Int);
 	uris->atom_Float          = map->map (map->handle, LV2_ATOM__Float);
 
-	uris->spectrum            = map->map (map->handle, MODSPECTRE_URI "#spectrum");
+	uris->patch_Set           = map->map (map->handle, LV2_PATCH__Set);
+	uris->patch_property      = map->map (map->handle, LV2_PATCH__property);
+	uris->patch_value         = map->map (map->handle, LV2_PATCH__value);
+
 	uris->bin_count           = map->map (map->handle, MODSPECTRE_URI "#bin_count");
 	uris->bin_data            = map->map (map->handle, MODSPECTRE_URI "#bin_data");
 }
@@ -218,20 +226,28 @@ tx_to_gui (ModSpectre* self, const float* bins, int32_t n_bins)
 {
 	LV2_Atom_Forge_Frame frame;
 	lv2_atom_forge_frame_time (&self->forge, 0);
-	x_forge_object (&self->forge, &frame, 0, self->uris.spectrum);
+
+	/* add vector of floats raw 'bin_data' */
+	x_forge_object (&self->forge, &frame, 0, self->uris.patch_Set);
+
+	lv2_atom_forge_key (&self->forge, self->uris.patch_property);
+	lv2_atom_forge_urid (&self->forge, self->uris.bin_data);
+	lv2_atom_forge_key (&self->forge, self->uris.patch_value);
+	lv2_atom_forge_vector (&self->forge, sizeof (float), self->uris.atom_Float, n_bins, bins);
+
+	lv2_atom_forge_pop (&self->forge, &frame);
 
 #if 0 // not used by UI
 	/* add integer attribute 'N_BINS' */
-	lv2_atom_forge_property_head (&self->forge, self->uris.bin_count, 0);
+	x_forge_object (&self->forge, &frame, 0, self->uris.patch_Set);
+
+	lv2_atom_forge_key (&self->forge, self->uris.patch_property);
+	lv2_atom_forge_urid (&self->forge, self->uris.bin_count);
+	lv2_atom_forge_key (&self->forge, self->uris.patch_value);
 	lv2_atom_forge_int (&self->forge, n_bins);
-#endif
 
-	/* add vector of floats raw 'bin_data' */
-	lv2_atom_forge_property_head (&self->forge, self->uris.bin_data, 0);
-	lv2_atom_forge_vector (&self->forge, sizeof (float), self->uris.atom_Float, n_bins, bins);
-
-	/* close off atom-object */
 	lv2_atom_forge_pop (&self->forge, &frame);
+#endif
 }
 
 /* *****************************************************************************
@@ -350,16 +366,18 @@ run (LV2_Handle instance, uint32_t n_samples)
 	float *tbl = self->bins;
 #endif
 
-	if (self->ctrl_out && fft_ran_this_cycle) {
-		bool changed = false;
-		for (uint32_t b = 0; b < N_BINS; ++b) {
-			if (fabsf (self->last[b] - tbl[b]) >= guipx) {
-				self->last[b] = tbl[b];
-				changed = true;
+	if (self->ctrl_out) {
+		if (fft_ran_this_cycle) {
+			bool changed = false;
+			for (uint32_t b = 0; b < N_BINS; ++b) {
+				if (fabsf (self->last[b] - tbl[b]) >= guipx) {
+					self->last[b] = tbl[b];
+					changed = true;
+				}
 			}
-		}
-		if (changed) {
-			tx_to_gui (self, self->last, N_BINS);
+			if (changed) {
+				tx_to_gui (self, self->last, N_BINS);
+			}
 		}
 		/* close off atom-sequence */
 		lv2_atom_forge_pop (&self->forge, &self->frame);
@@ -371,7 +389,7 @@ cleanup (LV2_Handle instance)
 {
 	ModSpectre* self = (ModSpectre*)instance;
 #ifdef BACKGROUND_FFT
-  pthread_mutex_lock (&self->lock);
+	pthread_mutex_lock (&self->lock);
 	self->keep_running = false;
 	pthread_cond_signal (&self->signal);
 	pthread_mutex_unlock (&self->lock);
