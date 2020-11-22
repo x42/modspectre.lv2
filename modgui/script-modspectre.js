@@ -99,10 +99,6 @@ function (event) {
 		svg.polyline (g, path, {clipPath: 'url(#tfClip)'});
 	}
 
-	function parse_value (event) {
-		return event.value.split("\n").slice(1, -1).map(function(e) { return parseFloat(e) });
-	}
-
 	if (event.type == 'start') {
 		var sd = event.icon.find ('[mod-role=spectrum-display]');
 		sd.svg ();
@@ -119,11 +115,7 @@ function (event) {
 		var ds = {};
 		var ports = event.ports;
 		for (var p in ports) {
-			if (event.uri) {
-				ds[ports[p].uri] = parse_value(ports[p]);
-			} else {
-				ds[ports[p].symbol] = ports[p].value;
-			}
+			ds[ports[p].symbol] = ports[p].value;
 		}
 
 		sd.data ('xModPorts', ds);
@@ -133,7 +125,7 @@ function (event) {
 		var sd = event.icon.find ('[mod-role=spectrum-display]');
 		var ds = sd.data ('xModPorts');
 		if (event.uri) {
-			ds[event.uri] = parse_value (event);
+			ds[event.uri] = event.value;
 		} else {
 			ds[event.symbol] = event.value;
 		}
