@@ -4,6 +4,8 @@ function (event) {
 
 	var log1k = Math.log (1000.0);
 	var rate  = 48000;
+	var width = 256;
+	var height = 175;
 
 	/* some helper functions */
 
@@ -24,15 +26,12 @@ function (event) {
 		return y_pos(1 + db / 96);
 	}
 
-
 	/* the actual SVG drawing function */
 	function x42_draw_spectrum (sd) {
 		var ds = sd.data ('xModPorts');
 		var svg = sd.svg ('get');
 		if (!svg) { return; }
 
-		var width = 256;
-		var height = 175;
 		svg.clear ();
 
 		/* grid */
@@ -40,13 +39,15 @@ function (event) {
 
 		var glines = [0, -6, -12, -18, -24, -48, -72];
 		for (var i in glines) {
-			var yg = .5 + Math.round (y_at_db (glines[i])); svg.line (g, 0, yg, width, yg);
+			var yg = .5 + Math.round (y_at_db (glines[i]));
+			svg.line (g, 0, yg, width, yg);
 		}
 
 		g = svg.group ({stroke: 'darkgray', strokeWidth: 0.25, strokeDashArray: '1, 3', fill: 'none'});
 		var flines = [50, 200, 500, 2000, 5000, 15000];
 		for (var i in flines) {
-			var xg = Math.round (x_at_freq (flines[i], width)); svg.line (g, xg, 0, xg, height);
+			var xg = Math.round (x_at_freq (flines[i], width));
+			svg.line (g, xg, 0, xg, height);
 		}
 
 		var tg = svg.group ({stroke: 'gray', fontSize: '8px', textAnchor: 'end', fontFamily: 'Monospace', strokeWidth: 0.5});
@@ -54,7 +55,8 @@ function (event) {
 
 		flines = [100, 1000, 10000];
 		for (var i in flines) {
-			var xg = Math.round (x_at_freq (flines[i], width)); svg.line (g, xg, 0, xg, height + 5);
+			var xg = Math.round (x_at_freq (flines[i], width));
+			svg.line (g, xg, 0, xg, height + 5);
 		}
 
 		/* grid labels */
@@ -68,8 +70,9 @@ function (event) {
 		}
 
 		var gainlabels = [-6, -18, -48, -72];
-		for (var i in glines) {
-			var yg = 3 + Math.round (y_at_db (gainlabels[i])); svg.text (tg, width - 5, yg, gainlabels[i] + "dBFS");
+		for (var i in gainlabels) {
+			var yg = 3 + Math.round (y_at_db (gainlabels[i]));
+			svg.text (tg, width - 5, yg, gainlabels[i] + "dBFS");
 		}
 
 		/* transfer function */
@@ -125,6 +128,10 @@ function (event) {
 		var sd = event.icon.find ('[mod-role=spectrum-display]');
 		var ds = sd.data ('xModPorts');
 		if (event.uri) {
+			if (event.value.length !== 256) {
+				console.log("modspectre: Invalid data")
+				return
+			}
 			ds[event.uri] = event.value;
 		} else {
 			ds[event.symbol] = event.value;
