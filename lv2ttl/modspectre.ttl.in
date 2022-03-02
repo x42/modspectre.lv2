@@ -23,7 +23,10 @@
 	@VERSION@
 	lv2:optionalFeature lv2:hardRTCapable;
 	lv2:requiredFeature urid:map;
-	rdfs:comment "Crude Spectrum Analyzer";
+	rdfs:comment """The x42 Spectrum Analyzer is a crude spectrum analyzer plugin with a configurable response time.
+You can use it to analyse a signal's frequency contents.
+It is particularly useful for inspecting your signal chain at multiple points, to understand more about the effect of certain plugins on the frequency contents.
+""";
 
 	@MODBRAND@
 	@MODLABEL@
